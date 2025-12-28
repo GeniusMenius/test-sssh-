@@ -36,14 +36,8 @@ function msg_info() { echo -e "${INFO} ${YW}$1...${CL}"; }
 function msg_ok() { echo -e "${CM} ${GN}$1${CL}"; }
 function msg_error() { echo -e "${CROSS} ${RD}$1${CL}"; }
 
-# Funktion för att hämta alla IPv4-adresser
-get_all_ips() {
-  ip -4 addr show scope global | awk '/inet / {print $2}' | cut -d/ -f1
-}
-
-# Funktion för att hämta nätverksgränssnittsinformation
-get_interface_info() {
-  echo "Network Interfaces:"
+# Funktion för att hämta alla IPv4-adresser med gränssnittsinformation
+get_interface_ips() {
   ip -4 addr show scope global | awk '
     /^[\d]+:/ { 
       iface = $2
@@ -52,9 +46,30 @@ get_interface_info() {
     /inet / { 
       ip = $2
       gsub(/\/.*/, "", ip)
-      print "  " iface ": " ip
+      print ip ":" iface
     }
   '
+}
+
+# Funktion för att visa formaterad IP-information
+show_ip_bindings() {
+  echo "Glances is bound to all interfaces and accessible via:"
+  echo "=================================================="
+  local ips=$(get_interface_ips)
+  if [ -n "$ips" ]; then
+    while IFS=: read -r ip interface; do
+      echo "  Interface: $interface"
+      echo "  IP Address: $ip"
+      echo "  Web UI: http://$ip:61209"
+      echo "  Prometheus: http://$ip:61208"
+      echo "  ----------------------------------------"
+    done <<< "$ips"
+  else
+    echo "  No network interfaces found"
+  fi
+  echo
+  echo "💡 Note: Glances binds to 0.0.0.0, so it listens on all available IPs"
+  echo
 }
 
 install_glances_debian() {
@@ -118,13 +133,9 @@ EOF
   systemctl enable -q --now glances-exporter
   msg_ok "Created Glances Prometheus exporter service"
 
-  # Visa IP-information
+  # Visa detaljerad IP-information
   echo
-  get_interface_info
-  echo
-  echo "$APP Web UI: http://0.0.0.0:61209 (accessible from all IPs above)"
-  echo "$APP Prometheus Exporter: http://0.0.0.0:61208 (accessible from all IPs above)"
-  echo
+  show_ip_bindings
 }
 
 update_glances_debian() {
@@ -140,13 +151,9 @@ update_glances_debian() {
   systemctl restart glances glances-exporter
   msg_ok "Updated $APP"
   
-  # Visa IP-information efter uppdatering
+  # Visa detaljerad IP-information efter uppdatering
   echo
-  get_interface_info
-  echo
-  echo "$APP Web UI: http://0.0.0.0:61209 (accessible from all IPs above)"
-  echo "$APP Prometheus Exporter: http://0.0.0.0:61208 (accessible from all IPs above)"
-  echo
+  show_ip_bindings
 }
 
 uninstall_glances_debian() {
@@ -213,13 +220,9 @@ EOF
   rc-service glances-exporter start
   msg_ok "Created Glances Prometheus exporter service"
 
-  # Visa IP-information
+  # Visa detaljerad IP-information
   echo
-  get_interface_info
-  echo
-  echo "$APP Web UI: http://0.0.0.0:61209 (accessible from all IPs above)"
-  echo "$APP Prometheus Exporter: http://0.0.0.0:61208 (accessible from all IPs above)"
-  echo
+  show_ip_bindings
 }
 
 update_glances_alpine() {
@@ -236,13 +239,9 @@ update_glances_alpine() {
   rc-service glances-exporter restart
   msg_ok "Updated $APP"
   
-  # Visa IP-information efter uppdatering
+  # Visa detaljerad IP-information efter uppdatering
   echo
-  get_interface_info
-  echo
-  echo "$APP Web UI: http://0.0.0.0:61209 (accessible from all IPs above)"
-  echo "$APP Prometheus Exporter: http://0.0.0.0:61208 (accessible from all IPs above)"
-  echo
+  show_ip_bindings
 }
 
 uninstall_glances_alpine() {
