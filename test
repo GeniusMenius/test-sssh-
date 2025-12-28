@@ -10,25 +10,29 @@ echo ">>> Installing Glances with Prometheus exporter on ${GLANCES_IP}:${GLANCES
 # --- REMOVE existing Glances ---
 echo ">>> Removing old Glances installations..."
 if command -v systemctl &>/dev/null; then
-    sudo systemctl stop glances || true
-    sudo systemctl disable glances || true
-    sudo rm -f /etc/systemd/system/glances.service
+    systemctl stop glances || true
+    systemctl disable glances || true
+    rm -f /etc/systemd/system/glances.service
 elif command -v rc-service &>/dev/null; then
-    sudo rc-service glances stop || true
-    sudo rm -f /etc/init.d/glances
+    rc-service glances stop || true
+    rm -f /etc/init.d/glances
 fi
-sudo rm -rf /opt/glances
+rm -rf /opt/glances
 
-# --- INSTALL dependencies ---
+# --- DETECT OS ---
 OS="$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')"
 echo ">>> Detected OS: $OS"
 
+# --- INSTALL DEPENDENCIES ---
 if [[ "$OS" == "debian" || "$OS" == "ubuntu" ]]; then
-    sudo apt update
-    sudo apt install -y python3 python3-venv python3-pip curl git
+    echo ">>> Fixing broken packages..."
+    dpkg --configure -a || true
+    apt --fix-broken install -y || true
+    apt update
+    apt install -y python3 python3-venv python3-pip curl git || true
 elif [[ "$OS" == "alpine" ]]; then
-    sudo apk update
-    sudo apk add python3 py3-pip py3-virtualenv curl git
+    apk update
+    apk add python3 py3-pip py3-virtualenv curl git
 else
     echo "Unsupported OS: $OS"
     exit 1
@@ -36,15 +40,15 @@ fi
 
 # --- CREATE virtualenv ---
 echo ">>> Setting up virtualenv..."
-sudo mkdir -p /opt/glances
-sudo python3 -m venv /opt/glances/.venv
-sudo /opt/glances/.venv/bin/pip install --upgrade pip setuptools
-sudo /opt/glances/.venv/bin/pip install glances[all]
+mkdir -p /opt/glances
+python3 -m venv /opt/glances/.venv
+/opt/glances/.venv/bin/pip install --upgrade pip setuptools
+/opt/glances/.venv/bin/pip install glances[all]
 
 # --- CREATE SERVICE ---
 if command -v systemctl &>/dev/null; then
     echo ">>> Creating systemd service..."
-    cat <<EOF | sudo tee /etc/systemd/system/glances.service
+    cat <<EOF > /etc/systemd/system/glances.service
 [Unit]
 Description=Glances - An eye on your system
 After=network.target
@@ -58,13 +62,12 @@ WorkingDirectory=/opt/glances
 [Install]
 WantedBy=multi-user.target
 EOF
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable glances
-    sudo systemctl restart glances
+    systemctl daemon-reload
+    systemctl enable glances
+    systemctl restart glances
 elif command -v rc-service &>/dev/null; then
     echo ">>> Creating OpenRC service..."
-    cat <<EOF | sudo tee /etc/init.d/glances
+    cat <<EOF > /etc/init.d/glances
 #!/sbin/openrc-run
 
 command="/opt/glances/.venv/bin/glances"
@@ -77,9 +80,9 @@ depend() {
 
 description="Glances system monitoring with Prometheus exporter"
 EOF
-    sudo chmod +x /etc/init.d/glances
-    sudo rc-update add glances default
-    sudo rc-service glances restart
+    chmod +x /etc/init.d/glances
+    rc-update add glances default
+    rc-service glances start
 fi
 
 echo ">>> Glances installed and running at http://${GLANCES_IP}:${GLANCES_PORT}/metrics"
