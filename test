@@ -39,7 +39,7 @@ echo ">>> Setting up virtualenv..."
 mkdir -p /opt/glances
 python3 -m venv /opt/glances/.venv
 /opt/glances/.venv/bin/pip install --upgrade pip setuptools wheel
-/opt/glances/.venv/bin/pip install glances glances-prometheus
+/opt/glances/.venv/bin/pip install glances
 
 # --- CREATE SYSTEMD SERVICE (exporter only) ---
 echo ">>> Creating systemd service for Prometheus exporter..."
